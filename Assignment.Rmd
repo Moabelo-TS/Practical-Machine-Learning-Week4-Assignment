@@ -1,0 +1,117 @@
+---
+title: "Practical Machine Learning - Week 4 Assignment"
+author: "Tumelo Moabelo"
+output: html_document
+---
+
+## Executive Summary
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+The goal of this project is to predict the manner in which they did the exercise. This is the `classe` variable in the training set. I will use the prediction model to predict 20 different test cases.
+
+
+## Load required packages, download datasets & perform data processing 
+
+```{r , echo=TRUE}
+# Loading packages
+library(ggplot2)
+library(lattice)
+library(caret)
+library(kernlab)
+library(rpart)
+library(randomForest)
+library(rpart.plot)
+library(e1071)
+library(gbm)
+
+# Download datasets
+training_url <- 'http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv'
+training_data <- download.file(training_url, destfile = "C:/Users/Tumelo.Moabelo/Desktop/Data Science/Practical Machine learning/Week4/Project/training.csv")
+
+test_url <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+test_data <- download.file(test_url, destfile = "C:/Users/Tumelo.Moabelo/Desktop/Data Science/Practical Machine learning/Week4/Project/testing.csv") 
+
+# data cleaning(remove unwanted NA values)
+training <- read.csv('training.csv', na.strings = c("NA", "#DIV/0!", ""))
+test <- read.csv('testing.csv', na.strings = c("NA", "#DIV/0!", ""))
+
+clnColumnIndex <- colSums(is.na(training))/nrow(training) < 0.95
+training<- training[,clnColumnIndex]
+
+#  We Subset the data(remove col1:col7, since they unrelated to the model)
+training   <-training[,-c(1:7)]
+testing <-test[,-c(1:7)]
+length(colnames(training))
+
+```
+
+
+## Cross-validation
+In this step, training data will be split into 75% training data & 25% testing data. 
+
+```{r, echo=TRUE, results='hide'}
+Samples <- createDataPartition(y=training$classe, p=0.75, list=FALSE)
+Training_split <- training[Samples,] 
+Testing_split <- training[-Samples,]
+
+```
+
+## Expected out-of-sample error
+The expected out-of-sample error will equate to: 1-accuracy in the cross-validation data. Portion of correct classified observation/the total sample in the Testing_split data set will therefore be Accuracy. The expected value of the out-of-sample error will equate to the expected number of missclssified observations/total observations in the Test data set, which is the quantity: 1-accuracy found from the cross-validation data set.
+
+## Prediction models
+We will apply decision tree and random forest to our data.
+
+### Random forest
+```{r randomforest, echo=TRUE}
+RF_model<- train(classe ~. , data=Training_split, method= "rf", ntree=100)
+RF_model
+
+###Prediction  
+RF_prediction<- predict(RF_model, Testing_split)
+RF_cm<-confusionMatrix(RF_prediction, as.factor(Testing_split$classe))
+RF_cm
+
+```
+
+### Plot of the matrix generated from Random Forest
+```{r PLot, echo=TRUE}
+plot(RF_cm$table, col = RF_cm$byClass, 
+     main = paste("Random Forest - Accuracy Level =",
+                  round(RF_cm$overall['Accuracy'], 4)))
+```
+
+### Decision tree
+```{r decisiontree, echo=TRUE}
+# Fit model
+decisionTree_Model <- train(classe ~., method='rpart', data=Training_split)
+
+# Perform prediction and output confusion matrix
+Predict<- predict(decisionTree_Model, Testing_split)
+
+# perform confusion matrix confusion matrix 
+confusionMatrix(Predict,as.factor(Testing_split$classe))
+                
+```
+
+### Plot of decision tree
+```{r decision tree Plot, echo=TRUE}
+
+# Plot result of Decision tree
+rpart.plot(decisionTree_Model$finalModel)
+```
+
+
+## Conclusion
+
+The random forest algorithem performs better than the decision tree in terms of accuracy. The accuracy for forest model is 99.43% and accuracy of decision tree is way less than that. Thus, we will choose random forest model. 
+
+## Prediction
+
+Due to high accuracy of random forest, we will therefore use it to predict the quiz
+
+```{r prediction for quiz, echo=TRUE}
+# Perform prediction for quiz
+Quiz_Prediction <- predict(RF_model,testing)
+Quiz_Prediction
+```
